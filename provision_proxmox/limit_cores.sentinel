@@ -1,0 +1,31 @@
+import "tfplan"
+
+# Get all ProxMox instances from all modules
+get_proxmox_instances = func() {
+    instances = []
+    for tfplan.module_paths as path {
+        instances += values(tfplan.module(path).resources.proxmox_vm_qemu) else []
+    }
+    return instances
+}
+
+# Allowed Types
+allowed_cores = 1
+
+proxmox_instances = get_proxmox_instances()
+
+# Rule to restrict core count
+instance_cores_allowed = rule {
+    all proxmox_instances as _, instances {
+      all instances as index, r {
+  	   int(r.applied.cores) <= allowed_cores
+      }
+    }
+}
+
+print ( "ALERT: You're trying to provision too many cores.  Allowed Number: ", allowed_cores )
+  
+# Main rule that requires other rules to be true
+main = rule {
+  (instance_cores_allowed) else true
+}
